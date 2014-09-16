@@ -1,0 +1,125 @@
+---
+title       : Trans Europe Express
+subtitle    : Traveling Sales Man application using GoogleMaps
+author      : 
+job         : 
+framework   : io2012        # {io2012, html5slides, shower, dzslides, ...}
+highlighter : highlight.js  # {highlight.js, prettify, highlight}
+hitheme     : tomorrow      # 
+widgets     : []            # {mathjax, quiz, bootstrap}
+mode        : selfcontained # {standalone, draft}
+knit        : slidify::knit2slides
+---
+
+## Introduction
+
+The days of lowcost fuels are behind us due to increasing demand and increasing complexity of mining. As a logical result travel costs are also increasing and therefore reducing these cost bears more weight in improving business profits.
+
+Trans Europe Express(TEE) will help businesses in reducing car travel costs by determining the shortest route of a trip to multiple cities.
+
+The traveler can select the cities that have to be visited and the starting point, TEE will then show the shortest roundtrip in a table including distances. We will show the information displayed by TEE in the following demonstration.
+
+An online prototype is available at [Trans Europe Express](https://siggy4711.shinyapps.io/project/)
+
+--- .class #id 
+
+## Demonstration
+```{r,echo=FALSE,warning=FALSE,error=FALSE,message=FALSE}
+library(ggmap)
+library(TSP)
+cities <- c("Brussel","Berlin","London","Paris","Madrid","Lissabon","Prague")
+start <- "Madrid"
+if( ! start %in% cities ) cities <- c(start,cities)
+city_dist <- rep(0,length(cities)*length(cities))
+city_dist <- matrix(data=city_dist,nrow=length(cities),ncol=length(cities))
+
+for(i in 1:length(cities))
+{
+  for( j in i:length(cities))
+  {
+    if(i == j) next
+    city_dist [i,j] <- mapdist(cities[i],cities[j], mode="driving")$km
+  }
+}
+city_dist <- city_dist + t(city_dist)
+atsp <- as.ATSP(city_dist)
+tour <- solve_TSP(atsp, method="nn",control=list(start=1))
+```
+Assume that the cities to be visited are
+```{r,echo=TRUE}
+cities
+```
+and the trip starts in 
+```{r,echo=FALSE}
+start
+```
+Then TEE will derive the shortest route and for this route the sequence is
+```{r}
+cities[tour]
+```
+
+
+--- .class #id 
+
+### Demonstration, City to City output
+The roundtrip from city to city is orderly displayed in a table, the last line of the table shows the total trip length
+```{r,echo=FALSE,warning=FALSE,error=FALSE,message=FALSE}
+tour_next <- c(tour[-1],tour[1])
+dist <- rep(0,length(cities))
+for( i in 1:length(cities))
+{
+  dist[i] <- city_dist[tour[i],tour_next[i]]
+}
+to <- c(cities[tour][-1],cities[tour][1])
+from_to <- data.frame(from=cities[tour],to=to,distance=dist,stringsAsFactors = FALSE)
+df_cities <- data.frame(city_tour=cities[tour],from_to=from_to,stringsAsFactors = FALSE)
+tbl <- df_cities[c("from_to.from","from_to.to","from_to.distance")]
+names(tbl) <- c("From","To","Distance")
+tbl <- rbind(tbl,c(tbl[1,1],tbl[1,1],sum(tbl$Distance)))
+```
+
+```{r kable, echo=FALSE,warning=FALSE,error=FALSE,message=FALSE, results='asis'}
+kable(tbl)
+```
+
+--- .class #id 
+
+### Demonstration, map output
+A clear picture shows the roadtrip on a map.
+```{r,echo=FALSE,warning=FALSE,error=FALSE,message=FALSE}
+#plot route
+rts <- data.frame()
+for(i in 1:length(cities))
+{
+  if(i==length(cities))
+  {
+    rts <- rbind(rts,route(cities[tour][i],cities[tour][1], structure = 'route'))
+  }
+  else
+  {
+    rts <- rbind(rts,route(cities[tour][i],cities[tour][i+1], structure = 'route'))
+  }
+}
+
+gm <- get_map("Amsterdam",
+        zoom = 4, scale = "auto",
+        maptype =  "roadmap",
+        messaging = FALSE, urlonly = FALSE,
+        filename = "ggmapTemp", crop = TRUE,
+        color = "color",
+        source = "google")
+mm <- ggmap(gm, extent = 'panel')
+mm <- mm+geom_path( aes(x = lon, y = lat),  colour = 'red', size = 0.5,  data = rts)
+print(mm)
+
+
+```
+
+
+
+
+
+
+
+
+
